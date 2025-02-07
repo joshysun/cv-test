@@ -34,7 +34,7 @@ class AgentState(TypedDict):
     work_experience: Dict
     skills: Dict
 
-
+# 目前沒用到這個prompt了
 def get_system_prompt():
     return f""""# 履歷協作專家
 語言：繁體中文
@@ -392,22 +392,21 @@ def interactive_resume_builder():
         # 執行工作流程
         result = react_graph.invoke({"messages": messages})
 
-        # 打印AI的最後一個回覆
+        # print AI的最後一個回覆
         last_ai_message = [m for m in result['messages'] if isinstance(m, AIMessage)][-1]
         print("\n[AI]:", last_ai_message.content)
 
-        # 等待用戶輸入
+        # 用戶輸入
         user_input = input("\n[你]：").strip()
 
-        # 檢查是否退出
+        # 檢查是否要退出
         if user_input.lower() == 'exit':
             print("感謝使用履歷協作專家，再見！")
             break
 
-        # 將用戶輸入加入消息列表
+        # 將用戶輸入加入message
         messages.append(HumanMessage(content=user_input))
 
 
-# 主程式入口
 if __name__ == "__main__":
     interactive_resume_builder()
