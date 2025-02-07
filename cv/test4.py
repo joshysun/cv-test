@@ -23,11 +23,11 @@ def _set_env(var: str):
 _set_env("OPENAI_API_KEY")
 _set_env("LANGCHAIN_API_KEY")
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_PROJECT"] = "cv-test"
+os.environ["LANGCHAIN_PROJECT"] = "cv-test-1"
 
 
 # Define state types
-class AgentState(TypedDict):
+class AgentState(MessagesState):
     messages: List[BaseMessage]
     stage: str
     education: Dict
@@ -145,12 +145,12 @@ def get_system_prompt():
 def create_education_system_prompt():
     return """你是一位履歷協作專家，現在是「學歷背景」收集的階段。
     請從用戶的回答中擷取以下資訊：
-    - 學校名稱  school_name: str
-    - 最高學歷  education_levels: List[str]
+    - 學校名稱  school_name: str    //自動補齊簡稱，如「臺大」→「國立臺灣大學」
+    - 最高學歷  education_levels: List[str] //大學、研究所，預設是大學
     - 科系名稱  department_name: str
-    - 就學期間-起始   school_start_date: str
-    - 就學期間-結束   school_end_date: str
-    - 就學狀態  educational_states: List[str]
+    - 就學期間-起始   school_start_date: str //格式：YYYY-MM，若沒有提供月份，預設是9月
+    - 就學期間-結束   school_end_date: str    //格式：YYYY-MM，若沒有提供月份，預設是6月
+    - 就學狀態  educational_states: List[str] //畢業或肄業，預設是畢業
     請以對話方式引導用戶提供完整資訊。"""
 
 
@@ -288,10 +288,7 @@ sys_msg = SystemMessage(content="""你是一位履歷協作專家，將在5分�
 異常數據自動標註 ❌ 並提供修正指示
 
 輔助功能
-
-自動轉換簡稱（例：「臺大」→「國立台灣大學」）
-
-根據日期智能判斷就職狀態（在職/離職）
+根據日期自動判斷就職狀態（在職/離職）
 
 自由格式回答自動映射到對應欄位
 # 對話流程規範
