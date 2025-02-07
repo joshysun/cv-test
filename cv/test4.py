@@ -23,7 +23,7 @@ def _set_env(var: str):
 _set_env("OPENAI_API_KEY")
 _set_env("LANGCHAIN_API_KEY")
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_PROJECT"] = "cv-test-home"
+os.environ["LANGCHAIN_PROJECT"] = "cv-test"
 
 
 # Define state types
@@ -122,25 +122,56 @@ def get_system_prompt():
 
 # 履歷欄位
 ```
-//學校名稱
-//學歷
-//科系名稱
-//就學期間-起始
-//就學期間-結束
-//就學狀態
-//公司名稱
-//職務名稱
-//任職期間-起始
-//任職期間-結束
-//希望地點
-//希望職稱
-//專長名稱
-//外文種類
+//學校名稱  school_name: str
+//學歷    education_levels: List[str]
+//科系名稱  department_name: str
+//就學期間-起始   school_start_date: str
+//就學期間-結束   school_end_date: str
+//就學狀態  educational_states: List[str]
+//公司名稱  company_name: str
+//職務名稱  job_category: str
+//任職期間-起始   term_start_date: str
+//任職期間-結束   term_end_date: str
+//希望地點  hope_work_cities: List[str]
+//希望職稱  hope_job_title: str
+//專長名稱  good_at_skills_name: List[str]
+//外文種類  good_at_languages: List[str]
 ```
 
 
 *請用繁體中文進行對話流程*
 *盡量用最精簡的句子提問、回答，不要有過多的冗言贅詞*"""
+
+def create_education_system_prompt():
+    return """你是一位履歷協作專家，現在是「學歷背景」收集的階段。
+    請從用戶的回答中擷取以下資訊：
+    - 學校名稱  school_name: str
+    - 最高學歷  education_levels: List[str]
+    - 科系名稱  department_name: str
+    - 就學期間-起始   school_start_date: str
+    - 就學期間-結束   school_end_date: str
+    - 就學狀態  educational_states: List[str]
+    請以對話方式引導用戶提供完整資訊。"""
+
+
+def create_work_system_prompt():
+    return """你是一位履歷協作專家，現在是第二階段「工作經歷」收集。
+    請從用戶的回答中擷取以下資訊：
+    - 公司名稱  company_name: str
+    - 職稱    job_category: str
+    - 任職期間-起始  term_start_date: str
+    - 任職期間-結束  term_end_date: str
+    - 希望地點  hope_work_cities: List[str]
+    - 希望職稱  hope_job_title: str
+    請以對話方式引導用戶提供完整資訊。"""
+
+
+def create_skills_system_prompt():
+    return """你是一位履歷協作專家，現在是第三階段「專業技能」收集。
+    請從用戶的回答中擷取以下資訊：
+    - 專長名稱  good_at_skills_name: List[str]
+    - 外文種類  good_at_languages: List[str]
+    請以對話方式引導用戶提供完整資訊。"""
 
 
 def get_llm_response(messages: List[BaseMessage]) -> str:
@@ -176,10 +207,11 @@ def start(state: AgentState) -> AgentState:
     return state
 
 
-def collect_education(state: AgentState) -> AgentState:
+def collect_education(state: AgentState, school_name: str, education_levels: List[str], department_name: str, school_start_date: str, school_end_date: str,
+                      educational_states: List[str]) -> AgentState:
     """Collect education information"""
     messages = [
-        SystemMessage(content=get_system_prompt()),
+        SystemMessage(content=create_education_system_prompt()),
         *state["messages"]
     ]
 
@@ -198,10 +230,11 @@ def collect_education(state: AgentState) -> AgentState:
     return state
 
 
-def collect_work_experience(state: AgentState) -> AgentState:
+def collect_work_experience(state: AgentState, company_name: str, job_category: str, term_start_date: str, term_end_date: str,
+                            hope_work_cities: list[str], hope_job_title: str) -> AgentState:
     """Collect work experience information"""
     messages = [
-        SystemMessage(content=get_system_prompt()),
+        SystemMessage(content=create_work_system_prompt()),
         *state["messages"]
     ]
 
@@ -219,10 +252,10 @@ def collect_work_experience(state: AgentState) -> AgentState:
     return state
 
 
-def collect_skills(state: AgentState) -> AgentState:
+def collect_skills(state: AgentState, good_at_skills_name: list[str], good_at_languages: list[str]) -> AgentState:
     """Collect professional skills information"""
     messages = [
-        SystemMessage(content=get_system_prompt()),
+        SystemMessage(content=create_skills_system_prompt()),
         *state["messages"]
     ]
 
@@ -230,7 +263,7 @@ def collect_skills(state: AgentState) -> AgentState:
     state["messages"].append(AIMessage(content=response))
 
     # Extract skills info from the conversation
-    if len(state["messages"]) >= 8:  # Assuming we have enough context
+    if len(state["messages"]) >= 12:  # Assuming we have enough context
         state["skills"] = {
             "status": "complete"
             # Add actual parsing logic here
@@ -249,7 +282,61 @@ def get_next_stage(state: AgentState) -> Annotated[str, operator.eq]:
     """Determine which stage to execute next"""
     return state["stage"]
 
-sys_msg = SystemMessage(content="You are a helpful assistant tasked with performing arithmetic on a set of inputs.")
+sys_msg = SystemMessage(content="""你是一位履歷協作專家，將在5分鐘內完成高精度結構化履歷；每次回答後即時顯示「中文鍵值對」確認，並且提供一小段符合履歷敘述的句子。
+每次回答後即時顯示「中文鍵值對」確認，並且提供一小段符合履歷敘述的句子。
+公司名稱: 台灣人工智慧科技, 職務名稱: 資深工程師
+異常數據自動標註 ❌ 並提供修正指示
+
+輔助功能
+
+自動轉換簡稱（例：「臺大」→「國立台灣大學」）
+
+根據日期智能判斷就職狀態（在職/離職）
+
+自由格式回答自動映射到對應欄位
+# 對話流程規範
+- 階段性資料收集
+每階段最多詢問4個關聯問題
+重要欄位（如日期）自動格式驗證
+- 動態補齊機制
+未完成欄位智能推薦補問策略
+允許跨階段回溯修正資料
+- 最終輸出
+根據欄位及對應的值，完成一份簡單的履歷，並且輸出
+# 對話腳本模板
+[教育階段]
+「請分享您的最高學歷：學校全稱與就讀科系是？
+（例：國立成功大學 / 電機工程學系）」
+
+# 用戶回答後顯示：
+✅ 已儲存：
+┌ 學校名稱 → 國立成功大學
+└ 科系名稱 → 電機工程學系
+
+[異常處理範例]
+# 檢查到時間矛盾：
+「畢業年月：2023-09」 早於「入學年月：2025-06」
+請確認是否需調整日期或說明特殊情況？
+如果使用者偏題，沒有回覆履歷相關問題，請將對話導回蒐集履歷條件
+# 履歷欄位
+```
+//學校名稱  school_name: str
+//學歷    education_levels: List[str]
+//科系名稱  department_name: str
+//就學期間-起始   school_start_date: str
+//就學期間-結束   school_end_date: str
+//就學狀態  educational_states: List[str]
+//公司名稱  company_name: str
+//職務名稱  job_category: str
+//任職期間-起始   term_start_date: str
+//任職期間-結束   term_end_date: str
+//希望地點  hope_work_cities: List[str]
+//希望職稱  hope_job_title: str
+//專長名稱  good_at_skills_name: List[str]
+//外文種類  good_at_languages: List[str]
+```
+*請用繁體中文進行對話流程*
+*盡量用最精簡的句子提問、回答，不要有過多的冗言贅詞*""")
 
 tools = [get_llm_response, start, collect_education, collect_work_experience, collect_skills, should_continue, get_next_stage]
 llm = ChatOpenAI(model="gpt-4o")
@@ -281,11 +368,11 @@ react_graph = builder.compile()
 # Show
 # display(Image(react_graph.get_graph(xray=True).draw_mermaid_png()))
 
-messages = [HumanMessage(content="我想找工作")]
-messages = react_graph.invoke({"messages": messages})
+# messages = [HumanMessage(content="我想找工作")]
+# messages = react_graph.invoke({"messages": messages})
 
-for m in messages['messages']:
-    m.pretty_print()
+# for m in messages['messages']:
+#     m.pretty_print()
 
 
 def interactive_resume_builder():
@@ -299,7 +386,7 @@ def interactive_resume_builder():
 （例：國立成功大學 / 電機工程學系）。
 輸入 'exit' 結束程式。""")
 
-    messages = [HumanMessage(content="我想製作一份履歷")]
+    messages = [HumanMessage(content="hihi")]
 
     while True:
         # 執行工作流程
